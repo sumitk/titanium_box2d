@@ -5,8 +5,8 @@
 version: 0.1
 description: Box2D physics engine 
 author: Jeff Haynie 
-license: Appcelerator Commercial License 
-copyright: Copyright (c) 2011 by Appcelerator, Inc. 
+license: Apache Public License v2 
+copyright: Copyright (c) 2011 by Jeff Haynie
 
 
 # these should not be edited
