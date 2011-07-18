@@ -32,13 +32,13 @@ var redBlock = Ti.UI.createView({
 
 // add the block body to the world
 var redBody = world.addBody(redBlock,{
-	density:12.0, 
-	friction:0.3, 
+	density:12.0,
+	friction:0.3,
 	restitution:0.4,
-	type:"dynamic"	
+	type:"dynamic"
 });
 
-redBlock.addEventListener("collision",function(e) {
+world.addEventListener("collision",function(e) {
 	if ((e.a == redBody || e.b == redBody) && e.phase == "begin") {
 		Ti.API.info("the redBody collided with something");
 	}
