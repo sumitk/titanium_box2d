@@ -59,6 +59,7 @@ world.addEventListener("collision", function(e) {
 		Ti.API.info("the red block collided with something");
 
 		Ti.API.info(JSON.stringify(e));
+		Ti.Media.vibrate();
 	}
 });
 
