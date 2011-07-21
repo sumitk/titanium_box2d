@@ -1,7 +1,17 @@
 /**
- * Appcelerator Titanium Mobile Modules
- * Copyright (c) 2011 by Appcelerator, Inc. All Rights Reserved.
- * Proprietary and Confidential - This source code is not for redistribution
+ *  Copyright 2011 Jeff Haynie
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
 
 #import "TiBox2dWorldProxy.hh"
@@ -9,8 +19,6 @@
 #import "TiViewProxy.h"
 #import "TiContactListener.h"
 #import "TiBox2dBodyProxy.hh"
-
-#define PTM_RATIO 16
 
 @implementation TiBox2dWorldProxy
 
@@ -44,6 +52,11 @@
 		delete contactListener;
 		contactListener = nil;
 	}
+    if (bodies)
+    {
+        [bodies removeAllObjects];
+        RELEASE_TO_NIL(bodies);
+    }
 	[lock unlock];
 	RELEASE_TO_NIL(surface);
 	RELEASE_TO_NIL(lock);
@@ -52,7 +65,7 @@
 
 -(id)initWithViewProxy:(TiViewProxy*)view pageContext:(id<TiEvaluator>)context
 {
-	if (self = [super _initWithPageContext:context])
+	if ((self = [super _initWithPageContext:context]))
 	{
 		surface = [view retain];
 		lock = [[NSRecursiveLock alloc] init];
@@ -74,44 +87,12 @@
 		return;
 	}
 	
-	CGSize size = [[surface view] bounds].size;
-	
 	gravity.Set(0.0f, -9.81f); 
 	
 	// Construct a world object, which will hold and simulate the rigid bodies.
 	world = new b2World(gravity, false); //TODO: make configurable sleep
 	world->SetContinuousPhysics(true);
 	
-	// Define the ground body.
-	b2BodyDef groundBodyDef;
-	groundBodyDef.position.Set(0, 0); // bottom-left corner
-	
-	// Call the body factory which allocates memory for the ground body
-	// from a pool and creates the ground box shape (also from a pool).
-	// The body is also added to the world.
-	b2Body* groundBody = world->CreateBody(&groundBodyDef);
-	
-	//FIXME: do i need to release groundBody
-	
-	// Define the ground box shape.
-	b2EdgeShape groundBox;
-	
-	// bottom
-	groundBox.Set(b2Vec2(0,0), b2Vec2(size.width/PTM_RATIO,0));
-	groundBody->CreateFixture(&groundBox, 0);
-	
-	// top
-	groundBox.Set(b2Vec2(0,size.height/PTM_RATIO), b2Vec2(size.width/PTM_RATIO,size.height/PTM_RATIO));
-	groundBody->CreateFixture(&groundBox, 0);
-	
-	// left
-	groundBox.Set(b2Vec2(0,size.height/PTM_RATIO), b2Vec2(0,0));
-	groundBody->CreateFixture(&groundBox, 0);
-	
-	// right
-	groundBox.Set(b2Vec2(size.width/PTM_RATIO,size.height/PTM_RATIO), b2Vec2(size.width/PTM_RATIO,0));
-	groundBody->CreateFixture(&groundBox, 0);
-
 	if (contactListener)
 	{
 		world->SetContactListener(contactListener);
@@ -210,9 +191,14 @@
 	CGPoint boxDimensions = CGPointMake(physicalView.bounds.size.width/PTM_RATIO/2.0,physicalView.bounds.size.height/PTM_RATIO/2.0);
 	
 	CGFloat height = [surface view].bounds.size.height;
-	bodyDef.position.Set(p.x/PTM_RATIO, ( height - p.y)/PTM_RATIO);
+	bodyDef.position.Set(p.x/PTM_RATIO, (height - p.y)/PTM_RATIO);
 	
 	[lock lock];
+    
+    if (bodies==nil)
+    {
+        bodies = [[NSMutableArray alloc] init];
+    }
 	
 	TiBox2dBodyProxy *bp = nil;
 	
@@ -221,7 +207,6 @@
 
 		// Tell the physics world to create the body
 		b2Body *body = world->CreateBody(&bodyDef);
-
 
 		// Define the dynamic body fixture.
 		b2FixtureDef fixtureDef;
@@ -235,11 +220,27 @@
 		}
 		else
 		{
-			
 			// Define another box shape for our dynamic body.
-			b2PolygonShape dynamicBox;
-			dynamicBox.SetAsBox(boxDimensions.x, boxDimensions.y);
-			fixtureDef.shape = &dynamicBox;
+			b2PolygonShape shape;
+            id shapeValues = [props objectForKey:@"shape"];
+            if (shapeValues!=nil)
+            {
+                NSArray *values = (NSArray*)shapeValues;
+                int count = [values count];
+                b2Vec2 *vertices = new b2Vec2[count/2];
+                int x = 0;
+                for (size_t c = 0; c < count; c+=2)
+                {
+                    vertices[x++] = b2Vec2([TiUtils floatValue:[values objectAtIndex:c]]/PTM_RATIO,[TiUtils floatValue:[values objectAtIndex:c+1]]/PTM_RATIO);
+                }
+                shape.Set(vertices, x);
+                delete vertices;
+            }
+            else
+            {
+                shape.SetAsBox(boxDimensions.x, boxDimensions.y);
+            }
+			fixtureDef.shape = &shape;
 		}	
 		fixtureDef.density =  [TiUtils floatValue:@"density" properties:props def:3.0f];
 		fixtureDef.friction = [TiUtils floatValue:@"friction" properties:props def:0.3f];
@@ -272,6 +273,20 @@
 	[lock unlock];
 	
 	return bp;
+}
+
+-(void)removeBody:(id)body
+{
+    ENSURE_SINGLE_ARG(body, TiBox2dBodyProxy);
+    [lock lock];
+    if (world)
+    {
+        world->DestroyBody([body body]);
+    }
+    TiViewProxy *viewproxy = [body viewproxy];
+    [surface remove:[NSArray arrayWithObject:viewproxy]];
+    [bodies removeObject:body];
+    [lock unlock];
 }
 
 -(void)tick:(NSTimer *)timer

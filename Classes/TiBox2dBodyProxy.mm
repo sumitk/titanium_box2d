@@ -1,9 +1,18 @@
 /**
- * Appcelerator Titanium Mobile Modules
- * Copyright (c) 2011 by Appcelerator, Inc. All Rights Reserved.
- * Proprietary and Confidential - This source code is not for redistribution
+ *  Copyright 2011 Jeff Haynie
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
  */
-
 
 #import "TiBox2dBodyProxy.hh"
 #import "TiUtils.h"
@@ -31,7 +40,14 @@
 	return viewproxy;
 }
 
+-(b2Body*)body
+{
+    return body;
+}
+
 #define B2VEC2_ARRAY(v) [NSArray arrayWithObjects:NUMDOUBLE(v.x), NUMDOUBLE(v.y),nil];
+#define B2VEC2_ARRAY_WITH_PTM_RATIO(v) [NSArray arrayWithObjects:NUMDOUBLE(v.x*PTM_RATIO), NUMDOUBLE(v.y*PTM_RATIO),nil];
+
 #define ARRAY_B2VEC2(a,b) b2Vec2 b([TiUtils doubleValue:[a objectAtIndex:0]], [TiUtils doubleValue:[a objectAtIndex:1]]);
 
 -(NSArray*)getLocalCenter:(id)args
@@ -55,7 +71,12 @@
 -(NSArray*)getPosition:(id)args
 {
     const b2Vec2& velocity = body->GetPosition();
-    return B2VEC2_ARRAY(velocity);
+    return B2VEC2_ARRAY_WITH_PTM_RATIO(velocity);
+}
+
+-(id)getAngle:(id)args
+{
+    return NUMFLOAT(body->GetAngle());
 }
 
 -(id)getAngularVelocity:(id)args
@@ -81,6 +102,21 @@
     return NUMBOOL(body->IsAwake());
 }
 
+-(id)isBullet:(id)args
+{
+    return NUMBOOL(body->IsBullet());
+}
+
+-(id)isActive:(id)args
+{
+    return NUMBOOL(body->IsActive());
+}
+
+-(id)isFixedRotation:(id)args
+{
+    return NUMBOOL(body->IsFixedRotation());
+}
+
 -(void)setAwake:(id)args
 {
     ENSURE_SINGLE_ARG(args,NSNumber);
@@ -89,9 +125,24 @@
     body->SetAwake(x);
 }
 
+-(void)setBullet:(id)args
+{
+    ENSURE_SINGLE_ARG(args,NSNumber);
+    
+    bool x = [TiUtils boolValue:args];
+    body->SetBullet(x);
+}
+
+-(void)setFixedRotation:(id)args
+{
+    ENSURE_SINGLE_ARG(args,NSNumber);
+    
+    bool x = [TiUtils boolValue:args];
+    body->SetFixedRotation(x);
+}
+
 -(void)setLinearVelocity:(id)args
 {
-    ENSURE_SINGLE_ARG(args,NSArray);
     ARRAY_B2VEC2(args,v);
     body->SetLinearVelocity(v);
 }
@@ -148,6 +199,11 @@
     
     CGFloat i = [TiUtils floatValue:args];
     body->ApplyAngularImpulse(i);
+}
+
+-(void)resetMassData:(id)args
+{
+    body->ResetMassData();
 }
 
 @end
